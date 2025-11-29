@@ -64,8 +64,6 @@ export class AuthService {
       await this.usersRepository.save(candidate);
     }
 
-    console.log('candidate', candidate);
-
     return this.buildTokens(candidate);
   }
 

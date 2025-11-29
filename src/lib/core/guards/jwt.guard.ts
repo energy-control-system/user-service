@@ -21,8 +21,6 @@ export class JwtAuthGuard implements CanActivate {
     const request = context.switchToHttp().getRequest<RequestWithAuth>();
     const token = this.extractTokenFromHeaders(request);
 
-    console.log({ token });
-
     if (!token) {
       this.logger.error('API token is missing');
       throw new UnauthorizedException('API token is missing');

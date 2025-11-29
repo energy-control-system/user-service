@@ -181,8 +181,6 @@ export class UsersRepository {
   ) {
     const { ids, limit, offset } = params;
 
-    console.log(ids);
-
     const usersList = await this.drizzle.query.users.findMany({
       where: ids && ids.length > 0 ? inArray(users.id, ids) : undefined,
       limit,
