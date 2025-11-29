@@ -6,7 +6,6 @@ import {
   text,
   timestamp,
   check,
-  uniqueIndex,
 } from 'drizzle-orm/pg-core';
 
 export const users = pgTable(
@@ -41,14 +40,12 @@ export const users = pgTable(
   (table) => [
     check(
       'phone_number_format',
-      sql`${table.phoneNumber} ~ '^(\+7|8)\\d{10}$'`,
+      sql`${table.phoneNumber} ~ '^(\\+7|8)\\d{10}$'`,
     ),
     check(
       'email_format',
       sql`${table.email} ~ '^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$'`,
     ),
-    uniqueIndex('users_phone_number_unique').on(table.phoneNumber),
-    uniqueIndex('users_email_unique').on(table.email),
   ],
 );
 

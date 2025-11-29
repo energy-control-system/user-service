@@ -10,10 +10,13 @@ import {
   comparePassword,
   HashedPassword,
   hashPassword,
-} from 'src/lib/utils/bcrypt';
+} from 'src/lib/utils/crypto/bcrypt';
 import { AuthException, AuthExceptionCode } from '../exceptions/auth.exception';
+import {
+  createRefreshToken,
+  RefreshToken,
+} from 'src/lib/utils/crypto/refreshToken';
 
-export type RefreshToken = Branded<string, 'RefreshToken'>;
 export type UserId = Branded<number, 'UserId'>;
 
 export type UserEntityParams = {
@@ -64,6 +67,9 @@ export class UserEntity {
       passwordHash,
     } = params;
 
+    const refreshTokenProvided = refreshToken !== undefined;
+    const refreshTokenExpiryProvided = refreshTokenExpiredAfter !== undefined;
+
     if (!password && !passwordHash) {
       throw new AuthException(
         'Пароль не может быть пустым',
@@ -78,10 +84,17 @@ export class UserEntity {
     this._patronymic = patronymic;
     this._phone = phone;
     this._role = role ?? Role.Inspector;
-    this._refreshToken = refreshToken || null;
-    this._refreshTokenExpiredAfter = refreshTokenExpiredAfter || null;
+    this._refreshToken = refreshToken ?? null;
+    this._refreshTokenExpiredAfter = refreshTokenExpiredAfter ?? null;
     this._createdAt = createdAt || new Date();
     this._updatedAt = updatedAt || null;
+
+    if (!refreshTokenProvided && !refreshTokenExpiryProvided) {
+      const { token, expiredAfter } = createRefreshToken();
+
+      this._refreshToken = token;
+      this._refreshTokenExpiredAfter = expiredAfter;
+    }
 
     if (password) {
       this._passwordHash = hashPassword(password);
@@ -100,6 +113,13 @@ export class UserEntity {
         AuthExceptionCode.INVALID_PASSWORD,
       );
     }
+  }
+
+  public isRefreshTokenExpired() {
+    return (
+      this.refreshTokenExpiredAfter &&
+      this.refreshTokenExpiredAfter < new Date()
+    );
   }
 
   get role(): Role {

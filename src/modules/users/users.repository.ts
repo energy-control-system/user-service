@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { eq, sql } from 'drizzle-orm';
+import { eq, inArray, sql } from 'drizzle-orm';
 import {
   AuthException,
   AuthExceptionCode,
@@ -12,10 +12,11 @@ import { EmailValueType } from 'src/lib/domain/users/email.value';
 import { NameValueType } from 'src/lib/domain/users/name.value';
 import { PasswordValueType } from 'src/lib/domain/users/password.value';
 import { PhoneValueType } from 'src/lib/domain/users/phone.value';
-import { UserEntity } from 'src/lib/domain/users/users.entity';
+import { UserEntity, UserId } from 'src/lib/domain/users/users.entity';
 import { Schema } from 'src/lib/infrastructure/db';
 import { users } from 'src/lib/infrastructure/db/schema';
-import { Maybe } from 'src/lib/utils/types/helpers';
+import { RefreshToken } from 'src/lib/utils/crypto/refreshToken';
+import { Maybe, PaginationArgs } from 'src/lib/utils/types/helpers';
 
 export type UserCreateParams = {
   email: EmailValueType;
@@ -27,12 +28,22 @@ export type UserCreateParams = {
 };
 
 @Injectable()
-export class UsersService {
-  constructor(@Inject('DB') private drizzle: Schema) {}
+export class UsersRepository {
+  constructor(@Inject('DB') private readonly drizzle: Schema) {}
 
-  public async upsert(params: UserEntity) {
-    const { id, email, phone, name, surname, patronymic, role, password } =
-      params;
+  public async save(params: UserEntity) {
+    const {
+      id,
+      email,
+      phone,
+      name,
+      surname,
+      patronymic,
+      role,
+      password,
+      refreshToken,
+      refreshTokenExpiredAfter,
+    } = params;
 
     const shouldCreate = !id || (id as unknown as number) === 0;
 
@@ -45,6 +56,12 @@ export class UsersService {
         patronymic: patronymic?.getValue() ?? null,
         ...(role !== undefined ? { roleId: role } : {}),
         ...(password ? { passwordHash: password } : {}),
+        ...(refreshToken !== undefined
+          ? { refreshToken: refreshToken ?? null }
+          : {}),
+        ...(refreshTokenExpiredAfter !== undefined
+          ? { refreshTokenExpiredAfter: refreshTokenExpiredAfter ?? null }
+          : {}),
         updatedAt: sql`now()`,
       };
 
@@ -74,6 +91,8 @@ export class UsersService {
         email: email.getValue(),
         phoneNumber: phone.getValue(),
         roleId: role,
+        refreshToken,
+        refreshTokenExpiredAfter,
       })
       .returning();
 
@@ -116,6 +135,18 @@ export class UsersService {
     return UserEntity.fromDb(candidate);
   }
 
+  public async getByEmailOrNull(params: { email: EmailValueType }) {
+    const { email } = params;
+
+    const candidate = await this.drizzle.query.users.findFirst({
+      where: eq(users.email, email.getValue()),
+    });
+
+    if (!candidate) return null;
+
+    return UserEntity.fromDb(candidate);
+  }
+
   public async getByPhone(params: { phone: PhoneValueType }) {
     const { phone } = params;
 
@@ -131,5 +162,62 @@ export class UsersService {
     }
 
     return UserEntity.fromDb(candidate);
+  }
+
+  public async getByPhoneOrNull(params: { phone: PhoneValueType }) {
+    const { phone } = params;
+
+    const candidate = await this.drizzle.query.users.findFirst({
+      where: eq(users.phoneNumber, phone.getValue()),
+    });
+
+    if (!candidate) return null;
+
+    return UserEntity.fromDb(candidate);
+  }
+
+  public async getByIds(
+    params: { ids: Array<UserId> } & Partial<PaginationArgs>,
+  ) {
+    const { ids, limit, offset } = params;
+
+    const usersList = await this.drizzle.query.users.findMany({
+      where: inArray(users.id, ids),
+      limit,
+      offset,
+    });
+
+    return usersList.map((user) => UserEntity.fromDb(user));
+  }
+
+  public async getByRefreshToken(params: { token: RefreshToken }) {
+    const { token } = params;
+
+    const user = await this.drizzle.query.users.findFirst({
+      where: eq(users.refreshToken, token),
+    });
+
+    if (!user) {
+      return null;
+    }
+
+    return UserEntity.fromDb(user);
+  }
+
+  public async getById(params: { id: UserId }) {
+    const { id } = params;
+
+    const user = await this.drizzle.query.users.findFirst({
+      where: eq(users.id, id),
+    });
+
+    if (!user) {
+      throw new UsersException(
+        'Пользователь не найден',
+        UsersExceptionCode.USER_NOT_FOUND,
+      );
+    }
+
+    return UserEntity.fromDb(user);
   }
 }
