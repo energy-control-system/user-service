@@ -176,13 +176,15 @@ export class UsersRepository {
     return UserEntity.fromDb(candidate);
   }
 
-  public async getByIds(
-    params: { ids: Array<UserId> } & Partial<PaginationArgs>,
+  public async findMany(
+    params: { ids?: Array<UserId> } & Partial<PaginationArgs>,
   ) {
     const { ids, limit, offset } = params;
 
+    console.log(ids);
+
     const usersList = await this.drizzle.query.users.findMany({
-      where: inArray(users.id, ids),
+      where: ids && ids.length > 0 ? inArray(users.id, ids) : undefined,
       limit,
       offset,
     });

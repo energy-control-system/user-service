@@ -7,12 +7,15 @@ export const GetUsersByIdsQuerySchema = PaginationQuerySchema.extend({
   ids: z
     .string()
     .min(1, 'ids is required')
+    .nullish()
     .describe('Comma-separated list of user ids')
     .transform((v) =>
       v
-        .split(',')
-        .map((val) => Number(val))
-        .filter((n) => !Number.isNaN(n)),
+        ? v
+            .split(',')
+            .map(Number)
+            .filter((n) => !Number.isNaN(n))
+        : [],
     )
     .pipe(z.array(UserIdSchema)),
 }).describe('Users lookup query params');

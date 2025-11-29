@@ -31,7 +31,7 @@ export class UserController {
   @ApiOperation({ summary: 'Get multiple users by ids with pagination' })
   @ApiOkResponse({ type: [UserDto] })
   public async getUsersByIds(@Query() query: GetUsersByIdsQueryDto) {
-    const users = await this.usersRepository.getByIds(query);
+    const users = await this.usersRepository.findMany(query);
     return users.map((user) => UserDto.fromEntity(user));
   }
 }
