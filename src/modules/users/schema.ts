@@ -5,19 +5,11 @@ import z from 'zod';
 
 export const GetUsersByIdsQuerySchema = PaginationQuerySchema.extend({
   ids: z
-    .string()
-    .min(1, 'ids is required')
-    .nullish()
-    .describe('Comma-separated list of user ids')
-    .transform((v) =>
-      v
-        ? v
-            .split(',')
-            .map(Number)
-            .filter((n) => !Number.isNaN(n))
-        : [],
-    )
-    .pipe(z.array(UserIdSchema)),
+    .array(z.coerce.number().int().positive())
+    .optional()
+    .transform((ids) => ids ?? [])
+    .pipe(z.array(UserIdSchema))
+    .describe('List of user ids (?ids=1&ids=2)'),
 }).describe('Users lookup query params');
 
 export const UserSchema = z
